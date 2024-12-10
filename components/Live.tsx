@@ -79,57 +79,54 @@ const Live = ({ canvasRef, undo, redo }: Props) => {
     );
   }, 1000);
 
- useInterval(() => {
-   if (
-     cursorState.mode === CursorMode.Reaction &&
-     cursor && // Ensure cursor is not null
-     cursorState.isPressed
-   ) {
-     // Assert cursor as type Cursor
-     const typedCursor = cursor as Cursor;
+  useInterval(() => {
+    if (
+      cursorState.mode === CursorMode.Reaction &&
+      cursor && // Ensure cursor is not null
+      cursorState.isPressed
+    ) {
+      // Assert cursor as type Cursor
+      const typedCursor = cursor as Cursor;
 
-     setReactions((reactions) =>
-       reactions.concat([
-         {
-           point: { x: typedCursor.x, y: typedCursor.y },
-           value: cursorState.reaction,
-           timestamp: Date.now(),
-         },
-       ])
-     );
+      setReactions((reactions) =>
+        reactions.concat([
+          {
+            point: { x: typedCursor.x, y: typedCursor.y },
+            value: cursorState.reaction,
+            timestamp: Date.now(),
+          },
+        ])
+      );
 
-     broadcast({
-       x: typedCursor.x,
-       y: typedCursor.y,
-       value: cursorState.reaction,
-     });
-   }
- }, 100);
+      broadcast({
+        x: typedCursor.x,
+        y: typedCursor.y,
+        value: cursorState.reaction,
+      });
+    }
+  }, 100);
 
+  type EventType = {
+    x: number;
+    y: number;
+    value: string; // or whatever type `value` should be
+  };
 
-type EventType = {
-  x: number;
-  y: number;
-  value: string; // or whatever type `value` should be
-};
+  useEventListener((eventData) => {
+    const event = eventData.event as EventType; // Type assertion
 
-useEventListener((eventData) => {
-  const event = eventData.event as EventType; // Type assertion
-
-  if (event) {
-    setReactions((reactions) =>
-      reactions.concat([
-        {
-          point: { x: event.x, y: event.y },
-          value: event.value,
-          timestamp: Date.now(),
-        },
-      ])
-    );
-  }
-});
-
-
+    if (event) {
+      setReactions((reactions) =>
+        reactions.concat([
+          {
+            point: { x: event.x, y: event.y },
+            value: event.value,
+            timestamp: Date.now(),
+          },
+        ])
+      );
+    }
+  });
 
   useEffect(() => {
     const onKeyUp = (e: KeyboardEvent) => {
@@ -228,7 +225,7 @@ useEventListener((eventData) => {
 
         {cursor && (
           <CursorChat
-            cursor={cursor}
+            cursor={cursor as { x: number; y: number }}
             cursorState={cursorState}
             setCursorState={setCursorState}
             updateMyPresence={updateMyPresence}
