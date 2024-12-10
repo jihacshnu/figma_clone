@@ -22,6 +22,18 @@ import { useMutation, useRedo, useStorage, useUndo } from "@liveblocks/react";
 import { defaultNavElement } from "../constants/index";
 import { handleDelete, handleKeyDown } from "@/lib/key-events";
 import { handleImageUpload } from "../lib/shapes";
+import { LiveMap } from "@liveblocks/client";
+
+// Type Guard for LiveMap
+function isLiveMap(obj: any): obj is LiveMap<string, any> {
+  return obj && typeof obj === "object" && "get" in obj && "set" in obj;
+}
+type JsonArray = Array<unknown>; // Or use any[] if you want a more permissive type
+
+// Type Guard for JsonArray
+function isJsonArray(obj: any): obj is JsonArray {
+  return Array.isArray(obj);
+}
 
 export default function Page() {
   const undo = useUndo();
@@ -34,6 +46,8 @@ export default function Page() {
   const activeObjectRef = useRef<fabric.Object | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const isEditingRef = useRef(false);
+
+  // Fetch canvasObjects from Liveblocks storage
   const canvasObjects = useStorage((root) => root.canvasObjects);
 
   const [elementAttributes, setElementAttributes] = useState<Attributes>({
@@ -46,6 +60,13 @@ export default function Page() {
     stroke: "#aabbcc",
   });
 
+  // Ensure canvasObjects is a LiveMap and extract values
+  const shapesArray = isLiveMap(canvasObjects)
+    ? Array.from(canvasObjects.values()) // if it's a LiveMap, get its values
+    : isJsonArray(canvasObjects)
+    ? canvasObjects // if it's a JsonArray, just use it directly
+    : []; // fallback to an empty array if neither
+
   const syncShapeInStorage = useMutation(({ storage }, object) => {
     if (!object) return;
 
@@ -53,8 +74,11 @@ export default function Page() {
     const shapeData = object.toJSON();
     shapeData.objectId = objectId;
 
-    const canvasObjects = storage.get("canvasObjects");
-    canvasObjects.set(objectId, shapeData);
+    // Explicitly assert that canvasObjects is a LiveMap
+    const canvasObjects = storage.get("canvasObjects") as LiveMap<string, any>;
+    if (canvasObjects) {
+      canvasObjects.set(objectId, shapeData);
+    }
   }, []);
 
   const [activeElement, setActiveElement] = useState<ActiveElement>({
@@ -64,21 +88,23 @@ export default function Page() {
   });
 
   const deleteAllShapes = useMutation(({ storage }) => {
-    const canvasObjects = storage.get("canvasObjects");
+    // Explicitly assert the type as LiveMap
+    const canvasObjects = storage.get("canvasObjects") as LiveMap<string, any>;
 
-    if (!canvasObjects || canvasObjects.size === 0) return true;
-
-    for (const [key, value] of canvasObjects.entries()) {
-      canvasObjects.delete(key);
+    if (canvasObjects) {
+      for (const key of canvasObjects.keys()) {
+        canvasObjects.delete(key);
+      }
     }
-
-    return canvasObjects.size === 0;
   }, []);
 
   const deleteShapeFromStorage = useMutation(({ storage }, objectId) => {
-    const canvasObjects = storage.get("canvasObjects");
+    // Explicitly assert the type as LiveMap
+    const canvasObjects = storage.get("canvasObjects") as LiveMap<string, any>;
 
-    canvasObjects.delete(objectId);
+    if (canvasObjects) {
+      canvasObjects.delete(objectId);
+    }
   }, []);
 
   const handleActiveElement = (elem: ActiveElement) => {
@@ -175,7 +201,7 @@ export default function Page() {
     });
 
     window.addEventListener("resize", () => {
-      handleResize({ fabricRef });
+      handleResize({ canvas: fabricRef.current });
     });
 
     window.addEventListener("keydown", (e: any) => {
@@ -201,6 +227,7 @@ export default function Page() {
       activeObjectRef,
     });
   }, [canvasObjects]);
+
   return (
     <main className="h-screen overflow-hidden">
       <Navbar
@@ -219,8 +246,7 @@ export default function Page() {
         }}
       />
       <section className="flex h-full flex-row">
-        <LeftSidebar allShapes={Array.from(canvasObjects || [])} />
-
+        <LeftSidebar allShapes={shapesArray} /> {/* Pass shapesArray here */}
         <Live canvasRef={canvasRef} undo={undo} redo={redo} />
         <RightSidebar
           elementAttributes={elementAttributes}
