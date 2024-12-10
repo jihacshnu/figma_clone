@@ -20,12 +20,20 @@ import {
 } from "@/components/ui/context-menu";
 import { shortcuts } from "@/constants";
 
+// Define the Cursor type with x and y properties
+type Cursor = {
+  x: number;
+  y: number;
+};
+
 type Props = {
   canvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
   undo: () => void;
   redo: () => void;
 };
+
 const Live = ({ canvasRef, undo, redo }: Props) => {
+  // Use useMyPresence without the type argument
   const [{ cursor }, updateMyPresence] = useMyPresence();
 
   const [cursorState, setCursorState] = useState<CursorState>({
@@ -70,34 +78,45 @@ const Live = ({ canvasRef, undo, redo }: Props) => {
       reactions.filter((r) => r.timestamp > Date.now() - 4000)
     );
   }, 1000);
-  useInterval(() => {
-    if (
-      cursorState.mode === CursorMode.Reaction &&
-      cursorState.isPressed &&
-      cursor
-    ) {
-      // concat all the reactions created on mouse click
-      setReactions((reactions) =>
-        reactions.concat([
-          {
-            point: { x: cursor.x, y: cursor.y },
-            value: cursorState.reaction,
-            timestamp: Date.now(),
-          },
-        ])
-      );
 
-      broadcast({
-        x: cursor.x,
-        y: cursor.y,
-        value: cursorState.reaction,
-      });
-    }
-  }, 100);
+ useInterval(() => {
+   if (
+     cursorState.mode === CursorMode.Reaction &&
+     cursor && // Ensure cursor is not null
+     cursorState.isPressed
+   ) {
+     // Assert cursor as type Cursor
+     const typedCursor = cursor as Cursor;
 
-  useEventListener((eventData) => {
-    const event = eventData.event;
+     setReactions((reactions) =>
+       reactions.concat([
+         {
+           point: { x: typedCursor.x, y: typedCursor.y },
+           value: cursorState.reaction,
+           timestamp: Date.now(),
+         },
+       ])
+     );
 
+     broadcast({
+       x: typedCursor.x,
+       y: typedCursor.y,
+       value: cursorState.reaction,
+     });
+   }
+ }, 100);
+
+
+type EventType = {
+  x: number;
+  y: number;
+  value: string; // or whatever type `value` should be
+};
+
+useEventListener((eventData) => {
+  const event = eventData.event as EventType; // Type assertion
+
+  if (event) {
     setReactions((reactions) =>
       reactions.concat([
         {
@@ -107,7 +126,10 @@ const Live = ({ canvasRef, undo, redo }: Props) => {
         },
       ])
     );
-  });
+  }
+});
+
+
 
   useEffect(() => {
     const onKeyUp = (e: KeyboardEvent) => {
