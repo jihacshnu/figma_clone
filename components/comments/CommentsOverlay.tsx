@@ -3,11 +3,7 @@
 import { useCallback, useRef } from "react";
 import { ThreadData } from "@liveblocks/client";
 
-import {
-  useEditThreadMetadata,
-  useThreads,
-  useUser,
-} from "@liveblocks/react/suspense";
+import { useEditThreadMetadata, useThreads } from "@liveblocks/react/suspense";
 import { useMaxZIndex } from "@/lib/useMaxZIndex";
 
 import { PinnedThread } from "../comments/PinnedThread";
@@ -27,12 +23,23 @@ export const CommentsOverlay = () => {
    */
   const { threads } = useThreads();
 
-  // get the max z-index of a thread
+  // Safely filter and validate threads with correct metadata type
+  const typedThreads = threads.filter(
+    (thread): thread is ThreadData<ThreadMetadata> =>
+      typeof thread.metadata === "object" &&
+      thread.metadata !== null &&
+      "x" in thread.metadata &&
+      "y" in thread.metadata &&
+      "resolved" in thread.metadata &&
+      "zIndex" in thread.metadata
+  );
+
+  // Get the max z-index of all threads
   const maxZIndex = useMaxZIndex();
 
   return (
     <div>
-      {threads
+      {typedThreads
         .filter((thread) => !thread.metadata.resolved)
         .map((thread) => (
           <OverlayThread
@@ -54,13 +61,6 @@ const OverlayThread = ({ thread, maxZIndex }: OverlayThreadProps) => {
    */
   const editThreadMetadata = useEditThreadMetadata();
 
-  /**
-   * We're using the useUser hook to get the user of the thread.
-   *
-   * useUser: https://liveblocks.io/docs/api-reference/liveblocks-react#useUser
-   */
-  // const { isLoading } = useUser(thread.comments[0].userId);
-
   // We're using a ref to get the thread element to position it
   const threadRef = useRef<HTMLDivElement>(null);
 
@@ -79,10 +79,6 @@ const OverlayThread = ({ thread, maxZIndex }: OverlayThreadProps) => {
     });
   }, [thread, editThreadMetadata, maxZIndex]);
 
-  // if (isLoading) {
-  //   return null;
-  // }
-
   return (
     <div
       ref={threadRef}
@@ -92,7 +88,7 @@ const OverlayThread = ({ thread, maxZIndex }: OverlayThreadProps) => {
         transform: `translate(${thread.metadata.x}px, ${thread.metadata.y}px)`,
       }}
     >
-      {/* render the thread */}
+      {/* Render the pinned thread */}
       <PinnedThread thread={thread} onFocus={handleIncreaseZIndex} />
     </div>
   );
